@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>TapPay iOS SDK with WKWebView</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="apple-pay.css">
+        <link rel="stylesheet" href="index.css">
+    </head>
+    <body>
+        <div id="hero">
+            <div class="inner">
+                <img id="logo" src="logo2.png" alt="tappay logo">
+                
+                <h1>TapPay iOS SDK with WKWebView</h1>
+
+                <div id="apple-pay-button" class="apple-pay-button-with-text apple-pay-button-black-with-text">
+                    <span class="text">Buy with</span>
+                    <span class="logo"></span>
+                </div>
+                
+                <div class="result" hidden>
+                    <strong>Apple Pay prime:</strong>
+                    <span></span>
+                </div>
+                
+                <div class="curl" hidden>
+                    <div class="btn">
+                        <img class="clippy" width="13" src="clippy.svg" alt="Copy to clipboard">
+                    </div>
+                    <pre><code></code></pre>
+                </div>
+            </div>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.7.1/clipboard.min.js"></script>        
+        <script>
+            const applePayButton = document.getElementById('apple-pay-button')
+            applePayButton.addEventListener('click', (e) => {
+                // send message to native app
+                webkit.messageHandlers.appHandler.postMessage('applePay');
+            }, false)
+
+            // call by native app in tpdApplePay:didReceivePrime 
+            function applePayCallback(prime, amount) {
+                document.querySelector('#hero .result > span').textContent = prime
+                document.querySelector('#hero .curl code').textContent = getCurlExample(prime, amount)
+
+                const clipboard = new Clipboard('#hero .curl .btn', {
+                    text: () => getCurlExample(prime, amount)
+                });
+
+                document.querySelector('#hero .result').removeAttribute('hidden')
+                document.querySelector('#hero .curl').removeAttribute('hidden')
+            }
+
+            function getCurlExample(prime, amount) {
+                return `curl -X POST https://sandbox.tappaysdk.com/tpc/payment/pay-by-prime \\
+    -H 'content-type: application/json' \\
+    -H 'x-api-key: partner_6ID1DoDlaPrfHw6HBZsULfTYtDmWs0q0ZZGKMBpp4YICWBxgK97eK3RM' \\
+    -d '{
+        "partner_key": "partner_6ID1DoDlaPrfHw6HBZsULfTYtDmWs0q0ZZGKMBpp4YICWBxgK97eK3RM",
+        "prime": "${prime}",
+        "amount": ${amount},
+        "merchant_id": "GlobalTesting_CTBC",
+        "details": "Some item",
+        "cardholder": {
+            "phone_number": "+886923456789",
+            "name": "王小明",
+            "email": "LittleMing@Wang.com",
+            "zip_code": "100",
+            "address": "台北市天龍區芝麻街1號1樓",
+            "national_id": "A123456789"
+        }
+    }'`
+            }
+        </script>
+    </body>
+</html>

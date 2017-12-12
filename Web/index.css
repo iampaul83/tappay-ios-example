@@ -1,0 +1,47 @@
+#hero {
+    background-color: rgb(255, 255, 255);
+    padding: 50px 40px 30px;
+}
+#hero .inner {
+    max-width: 500px;
+    margin: 0 auto;
+}
+#hero .result,
+#hero .curl {
+    color: #3c763d;
+    background-color: #dff0d8;
+    padding: 15px;
+    margin: 20px 0;
+    border: 1px solid #d6e9c6;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+#hero .curl {
+    padding-top: 20px;
+    background-color: rgba(0,0,0,.05);
+    border-color: rgba(0,0,0,.14); 
+    color: rgba(0,0,0,.84);
+    position: relative;
+}
+#hero .curl .btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    border: 1px solid rgba(0,0,0,.44);
+    background-color: white;
+    border-radius: 5px;
+    width: 15px;
+    height: 15px;
+    padding: 3px;
+    text-align: center;
+}
+.clippy {
+    margin-right: -3px;
+}
+#hero h1 {
+    font-weight: 300;
+}
+#logo {
+    height: 100px;
+    width: auto;
+}

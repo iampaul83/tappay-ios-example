@@ -5,17 +5,18 @@
 //  Copyright © 2017年 Cherri Tech Inc. All rights reserved.
 //
 
+#import <WebKit/WebKit.h>
 #import "ViewController.h"
 #import <TPDirect/TPDirect.h>
 
-@interface ViewController ()
+@interface ViewController () <WKScriptMessageHandler>
 
 @property (nonatomic, strong) TPDMerchant *merchant;
 @property (nonatomic, strong) TPDConsumer *consumer;
 @property (nonatomic, strong) TPDCart *cart;
 @property (nonatomic, strong) TPDApplePay *applePay;
-@property (nonatomic, strong) PKPaymentButton *applePayButton;
-@property (weak, nonatomic) IBOutlet UITextView *displayText;
+
+@property (strong, nonatomic) WKWebView *webView;
 
 
 @end
@@ -25,64 +26,39 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    // Do any additional setup after loading the view, typically from a nib.
-    
     [self merchantSetting];
     [self consumerSetting];
     [self cartSetting];
     [self paymentButtonSetting];
-    
-    
-    
+    [self setupWKWebView];
 }
 
-
-- (void)didReceiveMemoryWarning {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
-}
-
-- (void)didClickBuyButton:(PKPaymentButton *)sender {
-    
-    
-    // Without Handle Payment
+- (void)startApplePay {
     self.applePay = [TPDApplePay setupWthMerchant:self.merchant
                                      withConsumer:self.consumer
                                          withCart:self.cart
                                      withDelegate:self];
-    
     [self.applePay startPayment];
-    
-    
 }
 
-- (void)didClickSetupButton:(PKPaymentButton *)sender {
+- (void)setupApplePay {
     [TPDApplePay showSetupView];
 }
 
 - (void)paymentButtonSetting {
-    
-    
     // Check Consumer / Application Can Use Apple Pay.
     if (![TPDApplePay canMakePaymentsUsingNetworks:self.merchant.supportedNetworks]) {
-        self.applePayButton = [PKPaymentButton buttonWithType:PKPaymentButtonTypeSetUp style:PKPaymentButtonStyleBlack];
-        [self.applePayButton addTarget:self action:@selector(didClickSetupButton:) forControlEvents:UIControlEventTouchUpInside];
-
-        [self.view addSubview:self.applePayButton];
-        self.applePayButton.center = self.view.center;
+        // @TODO: show set up apple pay button
+        // see: https://developer.apple.com/documentation/applepayjs/displaying_apple_pay_buttons
 
         return;
     }
     
     // Check Device Support Apple Pay
     if ([TPDApplePay canMakePayments]) {
-        self.applePayButton = [PKPaymentButton buttonWithType:PKPaymentButtonTypeBuy style:PKPaymentButtonStyleBlack];
-        [self.applePayButton addTarget:self action:@selector(didClickBuyButton:) forControlEvents:UIControlEventTouchUpInside];
+        // @TODO: show apple pay button
+        // see: https://developer.apple.com/documentation/applepayjs/displaying_apple_pay_buttons
         
-        [self.view addSubview:self.applePayButton];
-        self.applePayButton.center = self.view.center;
-        
-        return;
     }
     
 }
@@ -92,10 +68,11 @@
     self.merchant = [TPDMerchant new];
     self.merchant.merchantName               = @"TapPay!";
     self.merchant.merchantCapability         = PKMerchantCapability3DS;
-    self.merchant.applePayMerchantIdentifier = @"merchant.tech.cherri.global.test"; // Your Apple Pay Merchant ID (https://developer.apple.com/account/ios/identifier/merchant)
+    // Your Apple Pay Merchant ID (register at https://developer.apple.com/account/ios/identifier/merchant)
+    self.merchant.applePayMerchantIdentifier = @"merchant.tech.cherri.global.test";
     self.merchant.countryCode                = @"TW";
     self.merchant.currencyCode               = @"TWD";
-    self.merchant.supportedNetworks          = @[PKPaymentNetworkAmex, PKPaymentNetworkVisa ,PKPaymentNetworkMasterCard];
+    self.merchant.supportedNetworks          = @[PKPaymentNetworkAmex, PKPaymentNetworkVisa, PKPaymentNetworkMasterCard];
     
     
     // Set Shipping Method.
@@ -111,13 +88,12 @@
     shipping2.amount     = [NSDecimalNumber decimalNumberWithString:@"50.0"];
     shipping2.label      = @"Shipping 6";
     
-    self.merchant.shippingMethods            = @[shipping1, shipping2];
+    self.merchant.shippingMethods = @[shipping1, shipping2];
     
     
 }
 
 - (void)consumerSetting {
-    
     // Set Consumer Contact.
     PKContact *contact  = [PKContact new];
     NSPersonNameComponents *name = [NSPersonNameComponents new];
@@ -153,6 +129,21 @@
     
 }
 
+- (void)setupWKWebView {
+    WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
+    WKUserContentController *controller = [[WKUserContentController alloc] init];
+    
+    // register message handler, so we can use `webkit.messageHandlers.appHandler.postMessage` in JavaScript
+    [controller addScriptMessageHandler:self name:@"appHandler"];
+    configuration.userContentController = controller;
+    
+    NSURL *url = [NSURL URLWithString:@"https://tappay-ios-sdk-with-wkwebview.netlify.com"];
+    _webView = [[WKWebView alloc] initWithFrame:self.view.frame
+                                  configuration:configuration];
+    [_webView loadRequest:[NSURLRequest requestWithURL:url]];
+    [self.view addSubview:_webView];
+}
+
 /*
  #pragma mark - Navigation
  
@@ -162,6 +153,16 @@
  // Pass the selected object to the new view controller.
  }
  */
+
+#pragma mark - WKScriptMessageHandler
+// handle message from WKWebView
+- (void)userContentController:(WKUserContentController *)userContentController
+      didReceiveScriptMessage:(WKScriptMessage *)message {
+    
+    if ([message.body isEqualToString:@"applePay"]) {
+        [self startApplePay];
+    }
+}
 
 #pragma mark - TPDApplePayDelegate
 - (void)tpdApplePayDidStartPayment:(TPDApplePay *)applePay {
@@ -257,14 +258,16 @@
     
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *payment = [NSString stringWithFormat:@"Use below cURL to proceed the payment.\ncurl -X POST \\\nhttps://sandbox.tappayapis.com/tpc/payment/pay-by-prime \\\n-H \'cache-control: no-cache\' \\\n-H \'content-type: application/json\' \\\n-H \'postman-token: 0745795d-2398-3e29-7820-b8e490d23d18\' \\\n-H \'x-api-key: partner_6ID1DoDlaPrfHw6HBZsULfTYtDmWs0q0ZZGKMBpp4YICWBxgK97eK3RM\' \\\n-d \'{ \n \"prime\": \"%@\", \"partner_key\": \"partner_6ID1DoDlaPrfHw6HBZsULfTYtDmWs0q0ZZGKMBpp4YICWBxgK97eK3RM\", \"merchant_id\": \"GlobalTesting_CTBC\", \"details\":\"TapPay Test\", \"amount\": %@, \"cardholder\": { \"phone_number\": \"+886923456789\", \"name\": \"Jane Doe\", \"email\": \"Jane@Doe.com\", \"zip_code\": \"12345\", \"address\": \"123 1st Avenue, City, Country\", \"national_id\": \"A123456789\" }, \"remember\": true }\'",prime,applePay.cart.totalAmount];
-        self.displayText.text = payment;
-        NSLog(@"%@", payment);
+        // post result back to WKWebView
+        NSString *exec_template = @"applePayCallback('%@', %@);";
+        NSString *exec = [NSString stringWithFormat:exec_template, prime, applePay.cart.totalAmount];
+        [_webView evaluateJavaScript:exec completionHandler:nil];
     });
     
     
     // 2. If Payment Success, set paymentReault = YES.
     BOOL paymentReault = YES;
+    // Dissmiss Apple Pay Payment Sheet
     [applePay showPaymentResult:paymentReault];
     
 }
