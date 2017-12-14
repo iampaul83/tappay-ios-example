@@ -42,6 +42,7 @@
     font-weight: 300;
 }
 #logo {
-    height: 100px;
-    width: auto;
+    width: 100%;
+    max-width: 350px;
+    height: auto;
 }
